@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBM PC 5150 & 5160 Switch Decoder</title>
+    <style>
+        :root {
+            --bg-color: #e0e0e0;
+            --card-bg: #f4f4f4;
+            --ibm-blue: #006699;
+            --switch-red: #d32f2f;
+            --switch-actuator: #ffffff;
+            --switch-slot: #000000;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border: 2px solid #999;
+            border-radius: 8px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 900px;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 2px solid var(--text-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--ibm-blue);
+        }
+
+        .system-selector {
+            background: #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #bbb;
+        }
+
+        .system-selector h3 { margin: 0 0 10px 0; font-size: 1rem; }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .radio-group label { cursor: pointer; font-weight: bold; }
+
+        /* --- SWITCH VISUALS --- */
+        .switch-container-wrapper {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 80px; 
+            margin: 25px 0;
+            background: #eaeaea;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        .dip-switch-block {
+            background-color: var(--switch-red);
+            padding: 30px 15px 25px 15px;
+            border-radius: 4px;
+            display: inline-flex;
+            gap: 6px;
+            box-shadow: 3px 3px 8px rgba(0,0,0,0.4);
+            position: relative;
+            border: 1px solid #900;
+        }
+
+        /* Block Labels (SW1/SW2) */
+        .dip-switch-block::before {
+            content: attr(data-label);
+            position: absolute;
+            left: -60px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: bold;
+            color: var(--text-color);
+            font-size: 1.5rem;
+            width: 50px;
+            text-align: right;
+        }
+
+        /* Global OFF Label (Bottom) */
+        .dip-switch-block::after {
+            content: "OFF ↓";
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: bold;
+            font-family: sans-serif;
+        }
+        
+        /* Global ON Label (Top) */
+        .block-top-label {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: bold;
+            font-family: sans-serif;
+            pointer-events: none;
+        }
+
+        .switch-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .switch-casing {
+            width: 26px;
+            height: 50px;
+            background-color: var(--switch-slot);
+            position: relative;
+            border: 1px solid #444;
+            border-radius: 2px;
+        }
+
+        .actuator {
+            width: 22px;
+            height: 22px;
+            background-color: var(--switch-actuator);
+            position: absolute;
+            left: 2px;
+            transition: top 0.15s ease-out;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            border-radius: 1px;
+        }
+
+        /* POSITIONS: UP is ON, DOWN is OFF */
+        .switch-unit[data-state="on"] .actuator { top: 2px; }  /* UP */
+        .switch-unit[data-state="off"] .actuator { top: 26px; } /* DOWN */
+
+        /* Shading for ignored switches (No X) */
+        .switch-unit[data-disabled="true"] {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .switch-label {
+            color: white;
+            font-size: 0.8rem;
+            margin-top: 6px;
+            font-weight: bold;
+        }
+
+        /* --- COLLAPSIBLE SUMMARY --- */
+        details.summary-details {
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        details.summary-details summary {
+            padding: 10px 15px;
+            background: #eee;
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--ibm-blue);
+            list-style: none;
+        }
+        
+        details.summary-details summary::-webkit-details-marker { display: none; }
+        details.summary-details summary::before {
+            content: "▶ ";
+            font-size: 0.8rem;
+            display: inline-block;
+            width: 15px;
+        }
+        details.summary-details[open] summary::before { content: "▼ "; }
+
+        .summary-table-container {
+            padding: 15px;
+            overflow-x: auto;
+        }
+        
+        table.summary {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            background: #fff;
+            border: 1px solid #999;
+        }
+        
+        table.summary th {
+            background: #333;
+            color: #fff;
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #555;
+        }
+        
+        table.summary td {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+        
+        .state-on { background-color: #dff0d8; color: #3c763d; font-weight: bold; }
+        .state-off { background-color: #f2dede; color: #a94442; font-weight: bold; }
+        .state-ignored { background-color: #f5f5f5; color: #999; font-style: italic; }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        @media(min-width: 700px) {
+            .controls { grid-template-columns: 1fr 1fr; }
+        }
+
+        .control-group {
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: var(--ibm-blue);
+            font-size: 0.9rem;
+        }
+
+        select { width: 100%; padding: 8px; }
+
+        .status-readout {
+            background-color: #1a1a1a;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            line-height: 1.4;
+            margin-bottom: 10px;
+            border: 2px inset #555;
+            min-height: 60px; 
+        }
+
+        .hidden { display: none; }
+        
+        .sub-section-title {
+            grid-column: 1 / -1;
+            border-bottom: 2px dashed #ccc;
+            padding-bottom: 5px;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>IBM PC Switch Decoder</h1>
+        <span>Supports 5150 & 5160 (XT)</span>
+    </header>
+
+    <!-- System Selection -->
+    <div class="system-selector">
+        <h3>1. Select System Configuration</h3>
+        <div class="radio-group">
+            <label><input type="radio" name="sys-model" value="5150" checked onchange="changeSystem()"> IBM 5150 (PC)</label>
+            <label><input type="radio" name="sys-model" value="5160" onchange="changeSystem()"> IBM 5160 (XT)</label>
+        </div>
+        
+        <div id="5150-options" class="hidden" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #bbb;">
+            <div style="margin-bottom: 10px;">
+                <label for="mb-type" style="font-weight:bold;">Motherboard Type:</label>
+                <select id="mb-type" onchange="changeSystem()" style="width:auto; margin-left:10px;">
+                    <option value="64-256">64KB - 256KB Motherboard (Rev B)</option>
+                    <option value="16-64">16KB - 64KB Motherboard (Rev A)</option>
+                </select>
+            </div>
+            
+            <div id="bios-select-group" class="hidden">
+                <label for="bios-rev" style="font-weight:bold;">BIOS Revision:</label>
+                <select id="bios-rev" onchange="changeSystem()" style="width:auto; margin-left:10px;">
+                    <option value="1982">3rd Revision (10/27/82) - Supports 640KB</option>
+                    <option value="1981">1st/2nd Revision (1981) - Max 544KB</option>
+                </select>
+                <div style="font-size:0.8rem; color: #555; margin-top:4px;">Note: 1981 BIOS ignores SW2 5-8.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visual Switch Blocks -->
+    <div class="switch-container-wrapper">
+        <div class="dip-switch-block" id="sw1Block" data-label="SW1">
+            <div class="block-top-label">ON ↑</div>
+            <!-- Switches 1-8 generated here -->
+        </div>
+        <div class="dip-switch-block hidden" id="sw2Block" data-label="SW2">
+            <div class="block-top-label">ON ↑</div>
+            <!-- Switches 1-8 generated here -->
+        </div>
+    </div>
+
+    <!-- Collapsible Summary Table -->
+    <details class="summary-details">
+        <summary>Show Detailed Switch Table</summary>
+        <div class="summary-table-container">
+            <table class="summary">
+                <thead>
+                    <tr>
+                        <th colspan="2">SW1 Settings</th>
+                        <th colspan="2" id="th-sw2">SW2 Settings</th>
+                    </tr>
+                    <tr>
+                        <th>Switch</th>
+                        <th>Setting</th>
+                        <th class="sw2-col">Switch</th>
+                        <th class="sw2-col">Setting</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryTableBody">
+                    <!-- Generated via JS -->
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+    <!-- Live Status Readout -->
+    <div class="status-readout" id="statusDisplay">Loading...</div>
+
+    <!-- Configuration Form -->
+    <div class="controls" id="configForm">
+        <div class="sub-section-title">Common Settings</div>
+        
+        <div class="control-group">
+            <label for="opt-floppy-count">Floppy Drives</label>
+            <select id="opt-floppy-count" onchange="updateFromForm()">
+                <option value="1">1 Drive</option>
+                <option value="2">2 Drives</option>
+                <option value="3">3 Drives</option>
+                <option value="4">4 Drives</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="opt-video">Video Adapter</label>
+            <select id="opt-video" onchange="updateFromForm()">
+                <option value="off,off">MDA (Monochrome)</option>
+                <option value="off,on">CGA (40x25)</option>
+                <option value="on,off">CGA (80x25)</option>
+                <option value="on,on">EGA / VGA (BIOS Card)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="opt-math">Math Coprocessor (8087)</label>
+            <select id="opt-math" onchange="updateFromForm()">
+                <option value="off">Installed</option>
+                <option value="on">Not Installed</option>
+            </select>
+        </div>
+        
+        <div class="control-group model-specific model-5160">
+            <label for="opt-mode">Operation Mode (5160)</label>
+            <select id="opt-mode" onchange="updateFromForm()">
+                <option value="off">Normal Operation</option>
+                <option value="on">Loop POST (Continuous)</option>
+            </select>
+        </div>
+
+        <div class="sub-section-title">Memory Settings</div>
+
+        <div class="control-group">
+            <label id="lbl-mobo-ram">Motherboard RAM Banks (SW1)</label>
+            <select id="opt-mobo-ram" onchange="updateFromForm(true)">
+                <!-- Populated via JS -->
+            </select>
+        </div>
+
+        <div class="control-group model-specific model-5150 hidden">
+            <label for="opt-total-ram">Total System RAM (SW2 + SW1)</label>
+            <select id="opt-total-ram" onchange="updateFromForm(false, true)">
+                <!-- Populated via JS -->
+            </select>
+        </div>
+    </div>
+</div>
+
+<script>
+    // State: true=ON (Closed/UP), false=OFF (Open/DOWN)
+    let sw1 = [false, true, false, false, true, false, true, true]; 
+    let sw2 = [false, false, false, false, false, false, false, false];
+    
+    let currentModel = '5150';
+    let mbType = '64-256'; 
+    let biosRev = '1982';
+
+    function init() {
+        createSwitchBlock('sw1Block', 1);
+        createSwitchBlock('sw2Block', 2);
+        changeSystem(); 
+    }
+
+    function createSwitchBlock(elementId, blockNum) {
+        const container = document.getElementById(elementId);
+        const topLabel = container.querySelector('.block-top-label');
+        container.innerHTML = '';
+        container.appendChild(topLabel);
+
+        for(let i=0; i<8; i++) {
+            const unit = document.createElement('div');
+            unit.className = 'switch-unit';
+            unit.dataset.block = blockNum;
+            unit.dataset.index = i;
+            unit.onclick = () => toggleSwitch(blockNum, i);
+            
+            const casing = document.createElement('div');
+            casing.className = 'switch-casing';
+            const actuator = document.createElement('div');
+            actuator.className = 'actuator';
+            const lbl = document.createElement('div');
+            lbl.className = 'switch-label';
+            lbl.innerText = (i+1);
+
+            casing.appendChild(actuator);
+            unit.appendChild(casing);
+            unit.appendChild(lbl);
+            container.appendChild(unit);
+        }
+    }
+
+    function changeSystem() {
+        const sysRadios = document.getElementsByName('sys-model');
+        sysRadios.forEach(r => { if(r.checked) currentModel = r.value; });
+        mbType = document.getElementById('mb-type').value;
+        biosRev = document.getElementById('bios-rev').value;
+
+        const div5150 = document.getElementById('5150-options');
+        const sw2Block = document.getElementById('sw2Block');
+        const group5160 = document.querySelectorAll('.model-5160');
+        const group5150 = document.querySelectorAll('.model-5150');
+        const biosGroup = document.getElementById('bios-select-group');
+        
+        const sw2Cols = document.querySelectorAll('.sw2-col');
+        const thSw2 = document.getElementById('th-sw2');
+
+        if (currentModel === '5160') {
+            div5150.classList.add('hidden');
+            sw2Block.classList.add('hidden');
+            group5160.forEach(e => e.classList.remove('hidden'));
+            group5150.forEach(e => e.classList.add('hidden'));
+            sw2Cols.forEach(c => c.style.display = 'none');
+            thSw2.style.display = 'none';
+        } else {
+            div5150.classList.remove('hidden');
+            sw2Block.classList.remove('hidden');
+            group5160.forEach(e => e.classList.add('hidden'));
+            group5150.forEach(e => e.classList.remove('hidden'));
+            sw2Cols.forEach(c => c.style.display = 'table-cell');
+            thSw2.style.display = 'table-cell';
+            
+            if(mbType === '16-64') biosGroup.classList.remove('hidden');
+            else biosGroup.classList.add('hidden');
+        }
+        
+        const sw2units = document.querySelectorAll('#sw2Block .switch-unit');
+        sw2units.forEach((u, idx) => {
+            let disabled = false;
+            if (currentModel === '5150') {
+                if (idx >= 5) disabled = true;
+                else if (idx === 4 && mbType === '16-64' && biosRev === '1981') disabled = true;
+            }
+            u.dataset.disabled = disabled ? "true" : "false";
+        });
+
+        populateMoboRamSelect(); 
+        populateTotalRamSelect();
+        updateUI();
+    }
+
+    function populateMoboRamSelect() {
+        const sel = document.getElementById('opt-mobo-ram');
+        sel.innerHTML = '';
+        if (currentModel === '5160') {
+            addOpt(sel, 'on,on', 'Bank 0 only (64KB or 256KB)');
+            addOpt(sel, 'off,on', 'Banks 0 & 1 (128KB or 512KB)');
+            addOpt(sel, 'on,off', 'Banks 0 - 2 (192KB or 576KB)');
+            addOpt(sel, 'off,off', 'Banks 0 - 3 (256KB or 640KB)', true);
+        } else {
+            if (mbType === '64-256') {
+                addOpt(sel, 'on,on', '64 KB');
+                addOpt(sel, 'off,on', '128 KB');
+                addOpt(sel, 'on,off', '192 KB');
+                addOpt(sel, 'off,off', '256 KB', true);
+            } else {
+                addOpt(sel, 'on,on', '16 KB');
+                addOpt(sel, 'off,on', '32 KB');
+                addOpt(sel, 'on,off', '48 KB');
+                addOpt(sel, 'off,off', '64 KB', true);
+            }
+        }
+    }
+
+    function populateTotalRamSelect() {
+        const sel = document.getElementById('opt-total-ram');
+        sel.innerHTML = '';
+        let max = 640;
+        if (mbType === '16-64' && biosRev === '1981') max = 544;
+        
+        for(let k = 16; k <= max; k += 16) {
+            if (k < 64 || k % 32 === 0 || k === 544) {
+                addOpt(sel, k, k + ' KB');
+            }
+        }
+        if (max === 544) sel.value = 544;
+        else sel.value = 640;
+    }
+
+    function addOpt(select, val, text, selected=false) {
+        let opt = document.createElement('option');
+        opt.value = val;
+        opt.text = text;
+        if(selected) opt.selected = true;
+        select.add(opt);
+    }
+
+    function toggleSwitch(block, index) {
+        if (block === 1) sw1[index] = !sw1[index];
+        else sw2[index] = !sw2[index];
+        updateUI(true); 
+    }
+
+    function updateFromForm(moboRamChanged = false, totalRamChanged = false) {
+        const fCount = parseInt(document.getElementById('opt-floppy-count').value);
+        if (currentModel === '5150') {
+            sw1[0] = false; // Always false (Drivers Installed) since "No Drives" removed
+            if(fCount > 0) {
+                sw1[6] = (fCount === 1 || fCount === 3); 
+                sw1[7] = (fCount === 1 || fCount === 2); 
+            }
+        } else {
+            sw1[0] = (document.getElementById('opt-mode').value === 'on');
+            sw1[6] = (fCount === 1 || fCount === 3);
+            sw1[7] = (fCount === 1 || fCount === 2);
+        }
+
+        sw1[1] = (document.getElementById('opt-math').value === 'on');
+        const vid = document.getElementById('opt-video').value.split(',');
+        sw1[4] = (vid[0] === 'on');
+        sw1[5] = (vid[1] === 'on');
+
+        if (currentModel === '5160') {
+            const ram = document.getElementById('opt-mobo-ram').value.split(',');
+            sw1[2] = (ram[0] === 'on');
+            sw1[3] = (ram[1] === 'on');
+        } else {
+            if (totalRamChanged) {
+                const tot = parseInt(document.getElementById('opt-total-ram').value);
+                let moboMax = (mbType === '64-256') ? 256 : 64;
+                if (tot > moboMax) {
+                    sw1[2] = false; sw1[3] = false; 
+                    document.getElementById('opt-mobo-ram').value = 'off,off';
+                }
+            }
+            const ram = document.getElementById('opt-mobo-ram').value.split(',');
+            sw1[2] = (ram[0] === 'on');
+            sw1[3] = (ram[1] === 'on');
+
+            const totalRam = parseInt(document.getElementById('opt-total-ram').value);
+            const moboVal = getMoboRamValue5150();
+            const expansionNeeded = Math.max(0, totalRam - moboVal);
+            let chunks = expansionNeeded / 32;
+            let maxBit = 4; 
+            if (mbType === '16-64' && biosRev === '1981') maxBit = 3;
+
+            for(let i=0; i<=4; i++) {
+                if (i > maxBit) {
+                     if (mbType === '16-64' && biosRev === '1981') sw2[i] = false; 
+                     else sw2[i] = true; 
+                     continue;
+                }
+                let bitSet = ((chunks >> i) & 1) === 1;
+                sw2[i] = bitSet; 
+            }
+        }
+        updateUI(false); 
+    }
+
+    function getMoboRamValue5150() {
+        let base = (mbType === '64-256') ? 64 : 16;
+        let s3 = sw1[2] ? 0 : 1; 
+        let s4 = sw1[3] ? 0 : 1;
+        let val = (s4 << 1) | s3; 
+        return (val + 1) * base;
+    }
+
+    function updateUI(sourceIsSwitch = false) {
+        const s1 = (i) => sw1[i-1];
+        
+        // 1. Visuals
+        document.querySelectorAll('.switch-unit').forEach(u => {
+            const block = parseInt(u.dataset.block);
+            const idx = parseInt(u.dataset.index);
+            const isOn = (block === 1) ? sw1[idx] : sw2[idx];
+            u.dataset.state = isOn ? 'on' : 'off';
+        });
+
+        // 2. Summary Table
+        const tbody = document.getElementById('summaryTableBody');
+        tbody.innerHTML = '';
+        for(let i=0; i<8; i++) {
+            const tr = document.createElement('tr');
+            
+            const td1Num = document.createElement('td');
+            td1Num.innerText = `SW1-${i+1}`;
+            const td1Val = document.createElement('td');
+            td1Val.innerText = sw1[i] ? "ON" : "OFF";
+            td1Val.className = sw1[i] ? 'state-on' : 'state-off';
+            
+            tr.appendChild(td1Num);
+            tr.appendChild(td1Val);
+
+            if(currentModel === '5150') {
+                const td2Num = document.createElement('td');
+                td2Num.innerText = `SW2-${i+1}`;
+                const td2Val = document.createElement('td');
+                
+                let isIgnored = false;
+                if (i >= 5) isIgnored = true;
+                if (i === 4 && mbType === '16-64' && biosRev === '1981') isIgnored = true;
+
+                if(isIgnored) {
+                    td2Val.innerText = "N/A (Ignored)";
+                    td2Val.className = 'state-ignored';
+                } else {
+                    td2Val.innerText = sw2[i] ? "ON" : "OFF";
+                    td2Val.className = sw2[i] ? 'state-on' : 'state-off';
+                }
+                tr.appendChild(td2Num);
+                tr.appendChild(td2Val);
+            }
+            tbody.appendChild(tr);
+        }
+        
+        // 3. Green Status Text
+        let lines = [];
+        lines.push(`SYSTEM: ${currentModel} ${currentModel==='5150'?'['+mbType+'KB MB]':''}`);
+        if(currentModel==='5150' && mbType==='16-64') lines.push(`BIOS: ${biosRev}`);
+        
+        // Mobo RAM
+        let moboText = "";
+        if(currentModel === '5160') {
+            if(s1(3) && s1(4)) moboText = "64 KB or 256 KB (Bank 0)";
+            else if(!s1(3) && s1(4)) moboText = "128 KB or 512 KB (Banks 0-1)";
+            else if(s1(3) && !s1(4)) moboText = "192 KB or 576 KB (Banks 0-2)";
+            else moboText = "256 KB or 640 KB (Banks 0-3)";
+        } else {
+            moboText = getMoboRamValue5150() + " KB";
+        }
+        lines.push(`Mobo RAM: ${moboText}`);
+        
+        // Floppy
+        let f="4 Drives";
+        if(s1(7)&&s1(8)) f="1 Drive";
+        else if(!s1(7)&&s1(8)) f="2 Drives";
+        else if(s1(7)&&!s1(8)) f="3 Drives";
+        // On 5150, if SW1-1 was manually set ON (No drives), indicate it
+        if(currentModel==='5150' && s1(1)) f="0 Drives (SW1-1 set)";
+        lines.push(`Floppy: ${f}`);
+
+        // Video
+        let v = "";
+        if(!s1(5)&&!s1(6)) v="MDA";
+        else if(!s1(5)&&s1(6)) v="CGA 40x25";
+        else if(s1(5)&&!s1(6)) v="CGA 80x25";
+        else v="EGA / VGA";
+        lines.push(`Video: ${v}`);
+
+        // Math
+        lines.push(`Math Coprocessor: ${s1(2)?"Not Installed":"Installed"}`);
+
+        // Mode (5160 only)
+        if(currentModel === '5160') {
+            lines.push(`Operation Mode: ${s1(1)?"Loop POST":"Normal Operation"}`);
+        }
+
+        // SW2 Decode
+        if (currentModel === '5150') {
+            let maxBit = 4;
+            if (mbType === '16-64' && biosRev === '1981') maxBit = 3;
+            let val = 0;
+            for(let i=0; i<=maxBit; i++) if(sw2[i]) val += (1 << i);
+            let mobo = getMoboRamValue5150();
+            let total = mobo + (val * 32);
+            lines.push(`Total System RAM: ${total} KB`);
+        }
+
+        document.getElementById('statusDisplay').innerText = lines.join("\n");
+
+        // 4. Sync Dropdowns
+        if (sourceIsSwitch) {
+            document.getElementById('opt-math').value = s1(2)?'on':'off';
+            document.getElementById('opt-video').value = (s1(5)?'on':'off')+','+(s1(6)?'on':'off');
+            
+            const ramKey = (s1(3)?'on':'off')+','+(s1(4)?'on':'off');
+            const mSel = document.getElementById('opt-mobo-ram');
+            if(mSel.querySelector(`option[value="${ramKey}"]`)) mSel.value = ramKey;
+
+            // 5150 Total RAM Sync
+            if (currentModel === '5150') {
+                let maxBit = 4;
+                if (mbType === '16-64' && biosRev === '1981') maxBit = 3;
+                let val = 0;
+                for(let i=0; i<=maxBit; i++) if(sw2[i]) val += (1 << i);
+                let mobo = getMoboRamValue5150();
+                let total = mobo + (val * 32);
+                const tSel = document.getElementById('opt-total-ram');
+                if(tSel.querySelector(`option[value="${total}"]`)) tSel.value = total;
+                
+                // 5150 Floppy Sync
+                if (!s1(1)) { // Only sync if Drives Installed
+                    let val = "1";
+                    if (!s1(7) && s1(8)) val = "2";
+                    if (s1(7) && !s1(8)) val = "3";
+                    if (!s1(7) && !s1(8)) val = "4";
+                    document.getElementById('opt-floppy-count').value = val;
+                }
+            }
+
+            // 5160 Specific Sync
+            if (currentModel === '5160') {
+                document.getElementById('opt-mode').value = s1(1) ? 'on' : 'off';
+                
+                let val = "1";
+                if (!s1(7) && s1(8)) val = "2";
+                else if (s1(7) && !s1(8)) val = "3";
+                else if (!s1(7) && !s1(8)) val = "4";
+                document.getElementById('opt-floppy-count').value = val;
+            }
+        }
+    }
+    
+    init();
+</script>
+</body>
+</html>
