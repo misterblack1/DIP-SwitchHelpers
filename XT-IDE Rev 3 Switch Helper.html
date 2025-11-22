@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XT-IDE Rev 3 Configurator</title>
+    <style>
+        :root {
+            --bg-color: #e0e0e0;
+            --card-bg: #f4f4f4;
+            --pcb-red: #b71c1c; 
+            --pcb-pattern: #9e1616;
+            --silkscreen: #ffffff;
+            --switch-body: #d32f2f;
+            --switch-actuator: #ffffff;
+            --switch-slot: #000000;
+            --text-color: #333;
+            --jumper-gold: #ffd700;
+            --state-on-bg: #d4edda;
+            --state-on-text: #155724;
+            --state-off-bg: #f8d7da;
+            --state-off-text: #721c24;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border: 1px solid #999;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 1100px;
+            overflow: hidden;
+        }
+
+        header {
+            background: #222;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; }
+
+        /* --- PCB LAYOUT --- */
+        .board-layout {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            padding: 40px 20px;
+            background-color: var(--pcb-red);
+            background-image: 
+                linear-gradient(45deg, var(--pcb-pattern) 25%, transparent 25%, transparent 75%, var(--pcb-pattern) 75%), 
+                linear-gradient(45deg, var(--pcb-pattern) 25%, transparent 25%, transparent 75%, var(--pcb-pattern) 75%);
+            background-size: 20px 20px;
+            border-bottom: 5px solid #800;
+            flex-wrap: wrap;
+        }
+
+        .component-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .component-group {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            background: rgba(0,0,0,0.15);
+            padding: 15px 20px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .board-label {
+            color: white;
+            font-weight: bold;
+            margin-top: 12px;
+            text-shadow: 1px 1px 2px black;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .silkscreen-col {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 215px;
+            padding: 28px 0 8px 0; 
+            color: var(--silkscreen);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-align: right;
+        }
+        
+        .silkscreen-col div { 
+            height: 22px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: flex-end;
+        }
+
+        .dip-switch-block {
+            background-color: var(--switch-body);
+            padding: 30px 10px 10px 10px;
+            border-radius: 3px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            box-shadow: 3px 3px 8px rgba(0,0,0,0.6);
+            border: 1px solid #700;
+            position: relative;
+            width: 60px;
+        }
+
+        .dip-switch-block::before {
+            content: "◄ ON";
+            position: absolute;
+            top: 6px; left: 5px;
+            font-size: 0.65rem;
+            color: white;
+            font-weight: bold;
+            font-family: sans-serif;
+        }
+        .dip-switch-block::after {
+            content: "OFF ►";
+            position: absolute;
+            top: 6px; right: 5px;
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.8);
+            font-weight: bold;
+            font-family: sans-serif;
+        }
+
+        .switch-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            height: 22px;
+        }
+
+        .switch-casing {
+            width: 40px;
+            height: 18px;
+            background-color: var(--switch-slot);
+            position: relative;
+            border: 1px solid #555;
+            border-radius: 1px;
+        }
+
+        .actuator {
+            width: 18px;
+            height: 14px;
+            background-color: var(--switch-actuator);
+            position: absolute;
+            top: 1px;
+            transition: left 0.1s ease-in-out;
+            border-radius: 1px;
+        }
+
+        /* ON = Left (1), OFF = Right (0) */
+        .switch-row[data-state="on"] .actuator { left: 2px; }
+        .switch-row[data-state="off"] .actuator { left: 18px; }
+
+        .switch-num {
+            color: white;
+            font-size: 0.7rem;
+            width: 10px;
+        }
+        
+        .dimmed { opacity: 0.3; pointer-events: none; }
+
+        /* --- JUMPERS --- */
+        .jumper-area {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            padding-top: 20px;
+            padding-left: 10px;
+        }
+
+        .jumper-set {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .jumper-label {
+            color: white;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 1rem;
+            width: 30px;
+        }
+
+        .pin-header {
+            display: flex;
+            gap: 6px;
+            background: #333;
+            padding: 6px;
+            border-radius: 2px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .pin {
+            width: 12px;
+            height: 12px;
+            background: var(--jumper-gold);
+            border-radius: 50%;
+            box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .shunt {
+            position: absolute;
+            height: 18px;
+            width: 30px; 
+            background-color: black;
+            top: 3px;
+            border-radius: 2px;
+            border: 1px solid #666;
+            transition: left 0.15s;
+        }
+        
+        .shunt::after {
+            content: '';
+            position: absolute;
+            top: 25%; left: 25%;
+            width: 50%; height: 50%;
+            background: #444;
+            opacity: 0.5;
+        }
+
+        .pin-header::after { content: "1"; position: absolute; color: #ccc; font-size: 0.6rem; top: -14px; left: 6px; }
+        .pin-header::before { content: "3"; position: absolute; color: #ccc; font-size: 0.6rem; top: -14px; right: 6px; }
+        .pin-header[data-pos="1-2"] .shunt { left: 3px; }
+        .pin-header[data-pos="2-3"] .shunt { left: 21px; }
+
+        /* --- COLLAPSIBLE TABLE --- */
+        details.summary-details {
+            margin: 0;
+            background: #eaeaea;
+            border-bottom: 1px solid #ccc;
+        }
+
+        details.summary-details summary {
+            padding: 12px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #333;
+            background: #ddd;
+            list-style: none;
+        }
+
+        details.summary-details summary::-webkit-details-marker { display: none; }
+        details.summary-details summary::before { content: "▶ "; display: inline-block; width: 20px; transition: transform 0.2s; }
+        details.summary-details[open] summary::before { transform: rotate(90deg); }
+
+        .table-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+            flex-wrap: wrap;
+        }
+
+        table.switch-table {
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            width: 300px;
+        }
+
+        table.switch-table th {
+            background: #444;
+            color: white;
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #555;
+        }
+        
+        table.switch-table td {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            text-align: center;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .state-on { background-color: var(--state-on-bg); color: var(--state-on-text); font-weight: bold; }
+        .state-off { background-color: var(--state-off-bg); color: var(--state-off-text); font-weight: bold; }
+        .state-unused { color: #999; font-style: italic; }
+
+
+        /* --- CONTROLS --- */
+        .controls-area {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .control-panel {
+            background: #fff;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .control-panel h3 {
+            margin-top: 0;
+            border-bottom: 2px solid var(--pcb-red);
+            padding-bottom: 5px;
+            color: #444;
+        }
+
+        label { display: block; font-weight: bold; font-size: 0.9rem; margin-top: 10px; }
+        select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; }
+        
+        .status-box {
+            grid-column: 1 / -1;
+            background: #222;
+            color: #0f0;
+            padding: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            border-radius: 4px;
+            min-height: 80px;
+            line-height: 1.4;
+        }
+        
+        @media(max-width: 800px) {
+            .controls-area { grid-template-columns: 1fr; }
+            .board-layout { flex-direction: column; align-items: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>XT-IDE Rev 3 Configurator</h1>
+    </header>
+
+    <!-- VISUAL BOARD -->
+    <div class="board-layout">
+        <!-- SW2 -->
+        <div class="component-wrapper">
+            <div class="component-group">
+                <div class="silkscreen-col">
+                    <div>A9</div><div>A8</div><div>A7</div><div>A6</div><div>A5</div><div>A4</div>
+                    <div class="dimmed">-</div><div class="dimmed">-</div>
+                </div>
+                <div class="dip-switch-block" id="sw2Block"></div>
+            </div>
+            <div class="board-label">SW2<br>(I/O ADDRESS)</div>
+        </div>
+
+        <!-- SW1 -->
+        <div class="component-wrapper">
+            <div class="component-group">
+                <div class="silkscreen-col">
+                    <div>A16</div><div>A15</div><div>A14</div><div>A13</div><div>8K</div><div>8K</div><div>ENA</div><div>WR</div>
+                </div>
+                <div class="dip-switch-block" id="sw1Block"></div>
+            </div>
+            <div class="board-label">SW1<br>(ROM OPTIONS)</div>
+        </div>
+
+        <!-- JUMPERS -->
+        <div class="component-wrapper">
+            <div class="component-group">
+                <div class="jumper-area">
+                    <div class="jumper-set">
+                        <div class="jumper-label">J2</div>
+                        <div class="pin-header" id="jumperJ2" onclick="toggleJumper()" data-pos="2-3">
+                            <div class="pin"></div><div class="pin"></div><div class="pin"></div><div class="shunt"></div>
+                        </div>
+                    </div>
+                    <div class="jumper-set">
+                        <div class="jumper-label">J3</div>
+                        <div class="pin-header" id="jumperJ3" onclick="toggleJumper()" data-pos="2-3">
+                            <div class="pin"></div><div class="pin"></div><div class="pin"></div><div class="shunt"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="board-label">MODE JUMPERS<br>1-2: Compat | 2-3: HiSpd</div>
+        </div>
+    </div>
+
+    <!-- COLLAPSIBLE TABLE -->
+    <details class="summary-details">
+        <summary>Show Detailed Switch Table</summary>
+        <div class="table-container">
+            <!-- SW2 Table -->
+            <table class="switch-table">
+                <thead>
+                    <tr><th colspan="3">SW2 (I/O Address)</th></tr>
+                    <tr><th>Switch</th><th>Function</th><th>State</th></tr>
+                </thead>
+                <tbody id="tb-sw2"></tbody>
+            </table>
+            <!-- SW1 Table -->
+            <table class="switch-table">
+                <thead>
+                    <tr><th colspan="3">SW1 (ROM Options)</th></tr>
+                    <tr><th>Switch</th><th>Function</th><th>State</th></tr>
+                </thead>
+                <tbody id="tb-sw1"></tbody>
+            </table>
+        </div>
+    </details>
+
+    <!-- CONTROLS -->
+    <div class="controls-area">
+        <div class="status-box" id="readout">Initializing...</div>
+
+        <!-- SW2 Controls -->
+        <div class="control-panel">
+            <h3>I/O & Mode Settings</h3>
+            
+            <label>Card Mode (J2 & J3)</label>
+            <select id="opt-mode" onchange="updateFromForm()">
+                <option value="hispeed">Hi-Speed (Rev 2) [Rec.]</option>
+                <option value="compat">Compatibility (Rev 1)</option>
+            </select>
+
+            <label>I/O Base Address (SW2 A9-A4)</label>
+            <select id="opt-io" onchange="updateFromForm()">
+                <!-- Populated via JS -->
+            </select>
+        </div>
+
+        <!-- SW1 Controls -->
+        <div class="control-panel">
+            <h3>ROM Settings</h3>
+
+            <label>EEPROM Type (SW1 8K/8K)</label>
+            <select id="opt-eeprom" onchange="populateRomOptions(); updateFromForm();">
+                <option value="2864">28C64 (8KB) - Default</option>
+                <option value="28256">28C256 (32KB)</option>
+            </select>
+            
+            <label>ROM Segment (SW1 A16-A13)</label>
+            <select id="opt-rom" onchange="updateFromForm()">
+                <!-- Populated via JS -->
+            </select>
+
+            <label>ROM Enable (SW1 ENA)</label>
+            <select id="opt-enable" onchange="updateFromForm()">
+                <option value="on">Enabled (Normal)</option>
+                <option value="off">Disabled</option>
+            </select>
+
+            <label>Write Enable (SW1 WR)</label>
+            <select id="opt-write" onchange="updateFromForm()">
+                <option value="on" selected>Write Enabled (For Flashing)</option>
+                <option value="off">Write Protected (Safe)</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- STATE MANAGEMENT ---
+    // true = ON (Left, "1"), false = OFF (Right, "0")
+    
+    // SW1 Defaults (D000h, 2864, Write Enabled)
+    // Map: WR, ENA, 8K, 8K, A13, A14, A15, A16 (Index 0-7)
+    let sw1 = [true, true, true, true, false, false, false, true];
+    
+    // SW2 Defaults (300h)
+    // Map: -, -, A4, A5, A6, A7, A8, A9 (Index 0-7)
+    let sw2 = [false, false, false, false, false, false, true, true];
+
+    let jumperPos = "2-3"; // Default Hi-Speed
+
+    // Switch Labels for Table
+    const sw1Labels = ["Write Enable", "ROM Enable", "EEPROM Type", "EEPROM Type", "Addr A13", "Addr A14", "Addr A15", "Addr A16"];
+    const sw2Labels = ["Unused", "Unused", "Addr A4", "Addr A5", "Addr A6", "Addr A7", "Addr A8", "Addr A9"];
+
+    function init() {
+        populateIODropdown();
+        populateRomOptions();
+        renderSwitchBlock('sw1Block', 1);
+        renderSwitchBlock('sw2Block', 2);
+        updateUI();
+    }
+
+    function populateIODropdown() {
+        const sel = document.getElementById('opt-io');
+        sel.innerHTML = '';
+        for(let i = 0x200; i <= 0x3F0; i += 0x10) {
+            let opt = document.createElement('option');
+            let hex = i.toString(16).toUpperCase();
+            opt.value = hex;
+            opt.text = hex + "h";
+            if(i === 0x300) opt.selected = true;
+            sel.appendChild(opt);
+        }
+        let cust = document.createElement('option');
+        cust.value = 'custom';
+        cust.text = 'Custom / Manual';
+        sel.appendChild(cust);
+    }
+
+    function populateRomOptions() {
+        const type = document.getElementById('opt-eeprom').value;
+        const sel = document.getElementById('opt-rom');
+        const currentVal = sel.value;
+        sel.innerHTML = '';
+
+        if(type === '2864') {
+            for(let i=0xC800; i<=0xDE00; i+=0x0200) {
+                addRomOption(sel, i);
+            }
+        } else {
+            addRomOption(sel, 0xC800);
+            addRomOption(sel, 0xD000);
+            addRomOption(sel, 0xD800);
+        }
+        
+        let cust = document.createElement('option');
+        cust.value = 'custom';
+        cust.text = 'Custom / Manual';
+        sel.appendChild(cust);
+
+        if(Array.from(sel.options).some(o => o.value === currentVal)) {
+            sel.value = currentVal;
+        } else {
+            sel.value = "D000"; 
+        }
+    }
+
+    function addRomOption(sel, val) {
+        let opt = document.createElement('option');
+        let hex = val.toString(16).toUpperCase();
+        opt.value = hex;
+        opt.text = hex + "h";
+        if(val === 0xD000) opt.selected = true;
+        sel.appendChild(opt);
+    }
+
+    function renderSwitchBlock(elementId, blockNum) {
+        const container = document.getElementById(elementId);
+        container.innerHTML = "";
+
+        // Render Top (8) to Bottom (1)
+        for(let i=7; i>=0; i--) {
+            const row = document.createElement('div');
+            row.className = 'switch-row';
+            row.dataset.index = i;
+            
+            if(blockNum === 2 && (i === 0 || i === 1)) {
+                row.classList.add('dimmed');
+                row.style.cursor = 'default';
+            } else {
+                row.onclick = () => toggleSwitch(blockNum, i);
+            }
+
+            const casing = document.createElement('div');
+            casing.className = 'switch-casing';
+            const actuator = document.createElement('div');
+            actuator.className = 'actuator';
+            const num = document.createElement('div');
+            num.className = 'switch-num';
+            num.innerText = (i+1);
+
+            casing.appendChild(actuator);
+            row.appendChild(casing);
+            row.appendChild(num);
+            container.appendChild(row);
+        }
+    }
+
+    function toggleSwitch(blockNum, index) {
+        if(blockNum === 1) {
+            sw1[index] = !sw1[index];
+            // Linked 3/4 Logic
+            if(index === 2) sw1[3] = sw1[2];
+            if(index === 3) sw1[2] = sw1[3];
+        } else {
+            sw2[index] = !sw2[index];
+        }
+        updateUI(true);
+    }
+
+    function toggleJumper() {
+        jumperPos = (jumperPos === "1-2") ? "2-3" : "1-2";
+        document.getElementById('jumperJ2').dataset.pos = jumperPos;
+        document.getElementById('jumperJ3').dataset.pos = jumperPos;
+        updateUI(true);
+    }
+
+    function updateFromForm() {
+        // 1. Mode
+        const mode = document.getElementById('opt-mode').value;
+        jumperPos = (mode === 'hispeed') ? "2-3" : "1-2";
+        document.getElementById('jumperJ2').dataset.pos = jumperPos;
+        document.getElementById('jumperJ3').dataset.pos = jumperPos;
+
+        // 2. I/O (SW2)
+        const ioHex = document.getElementById('opt-io').value;
+        if(ioHex !== 'custom') {
+            const val = parseInt(ioHex, 16);
+            sw2[7] = ((val >> 9) & 1) === 1; // A9
+            sw2[6] = ((val >> 8) & 1) === 1; // A8
+            sw2[5] = ((val >> 7) & 1) === 1; // A7
+            sw2[4] = ((val >> 6) & 1) === 1; // A6
+            sw2[3] = ((val >> 5) & 1) === 1; // A5
+            sw2[2] = ((val >> 4) & 1) === 1; // A4
+        }
+
+        // 3. EEPROM Type (SW1)
+        const chip = document.getElementById('opt-eeprom').value;
+        if(chip === '2864') { sw1[3] = true; sw1[2] = true; }
+        else { sw1[3] = false; sw1[2] = false; }
+
+        // 4. ROM (SW1)
+        const romHex = document.getElementById('opt-rom').value;
+        if(romHex !== 'custom') {
+            const val = parseInt(romHex, 16); 
+            const abs = val * 16; 
+            sw1[7] = ((abs >> 16) & 1) === 1; // A16
+            sw1[6] = ((abs >> 15) & 1) === 1; // A15
+            sw1[5] = ((abs >> 14) & 1) === 1; // A14
+            sw1[4] = ((abs >> 13) & 1) === 1; // A13
+
+            if(chip === '28256') {
+                sw1[5] = false; 
+                sw1[4] = false; 
+            }
+        }
+
+        // 5. Enable/Write
+        sw1[1] = (document.getElementById('opt-enable').value === 'on');
+        sw1[0] = (document.getElementById('opt-write').value === 'on');
+
+        updateUI(false);
+    }
+
+    function updateTable() {
+        const buildRows = (id, data, labels) => {
+            const tbody = document.getElementById(id);
+            tbody.innerHTML = "";
+            // Display 1 to 8
+            for(let i=0; i<8; i++) {
+                const tr = document.createElement('tr');
+                
+                const tdNum = document.createElement('td');
+                tdNum.innerText = (i+1);
+                
+                const tdFunc = document.createElement('td');
+                tdFunc.innerText = labels[i];
+                
+                const tdState = document.createElement('td');
+                if(id === "tb-sw2" && i < 2) {
+                    tdState.innerText = "N/A";
+                    tdState.className = "state-unused";
+                } else {
+                    const isOn = data[i];
+                    tdState.innerText = isOn ? "ON" : "OFF";
+                    tdState.className = isOn ? "state-on" : "state-off";
+                }
+
+                tr.appendChild(tdNum);
+                tr.appendChild(tdFunc);
+                tr.appendChild(tdState);
+                tbody.appendChild(tr);
+            }
+        };
+
+        buildRows("tb-sw2", sw2, sw2Labels);
+        buildRows("tb-sw1", sw1, sw1Labels);
+    }
+
+    function updateUI(manual = false) {
+        // Render Switches
+        const updateBlock = (id, data) => {
+            const container = document.getElementById(id);
+            Array.from(container.children).forEach(row => {
+                const idx = parseInt(row.dataset.index);
+                row.dataset.state = data[idx] ? 'on' : 'off';
+            });
+        };
+        updateBlock('sw1Block', sw1);
+        updateBlock('sw2Block', sw2);
+
+        // Update Table
+        updateTable();
+
+        let lines = [];
+
+        // Mode
+        const isHiSpeed = (jumperPos === "2-3");
+        lines.push(`MODE: ${isHiSpeed ? "HI-SPEED (Rev 2)" : "COMPATIBILITY (Rev 1)"}`);
+        lines.push(`  (Jumpers on pins ${jumperPos})`);
+
+        // I/O Decode
+        let ioAddr = 0;
+        if(sw2[7]) ioAddr |= (1<<9);
+        if(sw2[6]) ioAddr |= (1<<8);
+        if(sw2[5]) ioAddr |= (1<<7);
+        if(sw2[4]) ioAddr |= (1<<6);
+        if(sw2[3]) ioAddr |= (1<<5);
+        if(sw2[2]) ioAddr |= (1<<4);
+        const ioStr = ioAddr.toString(16).toUpperCase();
+        lines.push(`\nI/O ADDRESS: ${ioStr}h`);
+
+        // EEPROM Type
+        const is28C64 = (sw1[2] && sw1[3]);
+        const eepromStr = is28C64 ? "28C64 (8KB)" : "28C256 (32KB)";
+        if(sw1[2] !== sw1[3]) lines.push("EEPROM TYPE: INVALID (Switches mismatch)");
+        else lines.push(`EEPROM TYPE: ${eepromStr}`);
+        
+        // ROM Decode
+        let romSegment = "Custom/Invalid";
+        const romSel = document.getElementById('opt-rom');
+        for (let i = 0; i < romSel.options.length; i++) {
+            const optVal = romSel.options[i].value;
+            if(optVal === 'custom') continue;
+            
+            const abs = parseInt(optVal, 16) * 16;
+            const n16 = ((abs >> 16) & 1) === 1;
+            const n15 = ((abs >> 15) & 1) === 1;
+            const n14 = ((abs >> 14) & 1) === 1;
+            const n13 = ((abs >> 13) & 1) === 1;
+            
+            if(sw1[7] === n16 && sw1[6] === n15 && sw1[5] === n14 && sw1[4] === n13) {
+                romSegment = optVal + "h";
+                break;
+            }
+        }
+
+        lines.push(`\nROM SEGMENT: ${romSegment}`);
+        lines.push(`ROM ENABLE:  ${sw1[1] ? "YES" : "NO"}`);
+        lines.push(`WRITE EN.:   ${sw1[0] ? "YES (Unsafe)" : "NO (Protected)"}`);
+
+        document.getElementById('readout').innerText = lines.join("\n");
+
+        // Sync
+        if(manual) {
+            // Sync I/O
+            const ioDropdown = document.getElementById('opt-io');
+            const matchingIO = Array.from(ioDropdown.options).find(o => o.value === ioStr);
+            ioDropdown.value = matchingIO ? ioStr : 'custom';
+
+            // Sync EEPROM
+            if(sw1[2] === sw1[3]) {
+                document.getElementById('opt-eeprom').value = is28C64 ? '2864' : '28256';
+            }
+            
+            // Sync ROM Dropdown
+            const romDropdown = document.getElementById('opt-rom');
+            const cleanRomSeg = romSegment.replace('h','');
+            const matchingRom = Array.from(romDropdown.options).find(o => o.value === cleanRomSeg);
+            romDropdown.value = matchingRom ? cleanRomSeg : 'custom';
+            
+            document.getElementById('opt-mode').value = isHiSpeed ? 'hispeed' : 'compat';
+            document.getElementById('opt-enable').value = sw1[1] ? 'on' : 'off';
+            document.getElementById('opt-write').value = sw1[0] ? 'on' : 'off';
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
