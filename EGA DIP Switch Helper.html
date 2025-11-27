@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBM EGA Configuration Helper</title>
+    <style>
+        :root {
+            --bg-color: #e0e0e0;
+            --card-bg: #f4f4f4;
+            --ibm-blue: #006699;
+            --switch-red: #d32f2f;
+            --switch-actuator: #ffffff;
+            --switch-slot: #111;
+            --text-color: #333;
+            --gold: #d4af37;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 950px;
+            padding: 25px;
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+        }
+
+        h1 { margin: 0 0 5px 0; font-size: 1.8rem; color: var(--ibm-blue); }
+        .subtitle { color: #666; font-size: 0.9rem; }
+
+        /* --- CARD SELECTOR --- */
+        .card-selector {
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .card-selector select {
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        /* --- COLLAPSIBLE REFERENCE --- */
+        details.ref-table {
+            margin-bottom: 25px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        details.ref-table summary {
+            padding: 12px;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--ibm-blue);
+        }
+        .table-wrap {
+            padding: 20px;
+            overflow-x: auto;
+        }
+        table.manual-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        table.manual-table th {
+            background: #444;
+            color: white;
+            padding: 10px;
+            text-align: left;
+        }
+        table.manual-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        .hl-on { font-weight: bold; color: green; }
+        .hl-off { color: #d32f2f; }
+
+        /* --- MAIN LAYOUT --- */
+        .main-interface {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+        }
+        @media(min-width: 850px) {
+            .main-interface { grid-template-columns: 350px 1fr; }
+        }
+
+        /* --- CONTROLS PANEL --- */
+        .controls-panel {
+            background: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            height: fit-content;
+        }
+        .control-group label {
+            display: block;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--ibm-blue);
+        }
+        .control-group select {
+            width: 100%;
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .hint { font-size: 0.8rem; color: #777; margin-top: 5px; font-style: italic; }
+
+        /* --- VISUALS PANEL --- */
+        .visuals-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            align-items: center;
+            background: #eaeaea; /* Light gray "workbench" background */
+            padding: 30px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        /* --- DIP SWITCH (Grayhill Style) --- */
+        .dip-switch-block {
+            background-color: var(--switch-red);
+            padding: 40px 18px 30px 18px; /* Top padding for UP label */
+            border-radius: 3px;
+            display: inline-flex;
+            gap: 10px;
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+            position: relative;
+            border: 1px solid #a00;
+        }
+
+        /* Side Label "SW1" */
+        .dip-switch-block::before {
+            content: "SW1";
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: bold;
+            color: #555;
+            font-size: 1.1rem;
+        }
+        
+        /* Top/Bottom Labels */
+        .block-top-label {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: bold;
+            font-family: sans-serif;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .block-bottom-label {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: bold;
+            font-family: sans-serif;
+            pointer-events: none;
+        }
+
+        .switch-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .switch-casing {
+            width: 28px;
+            height: 56px;
+            background-color: var(--switch-slot);
+            position: relative;
+            border-radius: 1px;
+            box-shadow: inset 0 0 2px #000;
+        }
+
+        .actuator {
+            width: 24px;
+            height: 24px;
+            background-color: var(--switch-actuator);
+            position: absolute;
+            left: 2px;
+            transition: top 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+            border-radius: 1px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        /* STATE: False (OFF/OPEN) -> UP | True (ON) -> DOWN */
+        .switch-unit[data-state="off"] .actuator { top: 2px; }
+        .switch-unit[data-state="on"] .actuator { top: 30px; } 
+        
+        .switch-num { color: white; font-size: 0.85rem; margin-top: 5px; font-weight: bold; }
+
+        /* --- JUMPERS (Clean Look) --- */
+        .jumpers-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 50px;
+            justify-content: center;
+            width: 100%;
+            padding-top: 10px;
+        }
+
+        .jumper-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            min-width: 150px; /* Ensure wide enough for text */
+        }
+        
+        .jumper-label { 
+            font-weight: bold; 
+            margin-bottom: 10px; 
+            color: #333; 
+            font-size: 1rem;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        /* Pins Container */
+        .pin-header {
+            display: flex;
+            gap: 12px; /* Standard spacing */
+            position: relative;
+            padding: 5px;
+        }
+
+        /* Gold Pin Circle */
+        .pin {
+            width: 14px;
+            height: 14px;
+            background: radial-gradient(circle at 30% 30%, #ffd700, #b8860b);
+            border-radius: 50%;
+            border: 1px solid #b8860b;
+            position: relative;
+        }
+        
+        /* Pin Number */
+        .pin::after {
+            content: attr(data-pin);
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: #555;
+            font-family: sans-serif;
+            font-weight: 600;
+        }
+
+        /* The Shunt (Black Cap) */
+        .jumper-cap {
+            position: absolute;
+            background-color: #222;
+            width: 40px; /* Covers 2 pins + gap */
+            height: 18px;
+            top: 4px; /* Align vertically with pins */
+            border-radius: 2px;
+            z-index: 10;
+            cursor: pointer;
+            transition: left 0.15s ease-out;
+            box-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+        }
+
+        /* Cap Detail (Ridge) */
+        .jumper-cap::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: #444; /* Highlights top edge */
+            border-radius: 2px 2px 0 0;
+        }
+
+        /* Positioning Logic */
+        /* Pin=14px, Gap=12px. Total step = 26px */
+        /* Padded left by 5px in container */
+        .jumper-unit[data-pos="1-2"] .jumper-cap { left: 4px; }
+        .jumper-unit[data-pos="2-3"] .jumper-cap { left: 30px; }
+
+        /* --- STATUS READOUT --- */
+        .status-readout {
+            grid-column: 1 / -1;
+            background-color: #222;
+            color: #4f4; /* Terminal Green */
+            padding: 20px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            border-left: 5px solid var(--ibm-blue);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>IBM EGA Helper</h1>
+        <div class="subtitle">Interactive Jumper & DIP Switch Configuration</div>
+    </header>
+
+    <!-- Card Selector -->
+    <div class="card-selector">
+        <label for="card-select" style="font-weight:bold; margin-right:10px;">Card Model:</label>
+        <select id="card-select">
+            <option value="ibm_ega">IBM Enhanced Graphics Adapter (Standard)</option>
+        </select>
+    </div>
+
+    <!-- Collapsible Manual Reference -->
+    <details class="ref-table">
+        <summary>View Reference Tables (Manual)</summary>
+        <div class="table-wrap">
+            <h4 style="margin-top:0;">DIP Switches (SW1)</h4>
+            <table class="manual-table">
+                <thead>
+                    <tr>
+                        <th>SW1</th><th>SW2</th><th>SW3</th><th>SW4</th>
+                        <th>Type of Display & Initial Mode</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="hl-off">Off</td><td class="hl-off">Off</td><td class="hl-on">On</td><td class="hl-off">Off</td>
+                        <td>Monochrome (MDA)</td>
+                    </tr>
+                    <tr>
+                        <td class="hl-on">On</td><td class="hl-off">Off</td><td class="hl-off">Off</td><td class="hl-on">On</td>
+                        <td>Color (40x25)</td>
+                    </tr>
+                    <tr>
+                        <td class="hl-off">Off</td><td class="hl-off">Off</td><td class="hl-off">Off</td><td class="hl-on">On</td>
+                        <td>Color (80x25)</td>
+                    </tr>
+                    <tr>
+                        <td class="hl-on">On</td><td class="hl-on">On</td><td class="hl-on">On</td><td class="hl-off">Off</td>
+                        <td>Enhanced Color (Normal Mode)</td>
+                    </tr>
+                    <tr>
+                        <td class="hl-off">Off</td><td class="hl-on">On</td><td class="hl-on">On</td><td class="hl-off">Off</td>
+                        <td>Enhanced Color (Enhanced Mode)</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h4>Jumpers (P1 & P3)</h4>
+            <table class="manual-table">
+                <thead>
+                    <tr>
+                        <th>Display Attached</th>
+                        <th>P1 Setting</th>
+                        <th>P3 Setting</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>IBM Color Display (CGA) or Monochrome (MDA)</td>
+                        <td>2 & 3</td>
+                        <td>1 & 2</td>
+                    </tr>
+                    <tr>
+                        <td>IBM Enhanced Color Display (EGA)</td>
+                        <td>1 & 2</td>
+                        <td>1 & 2</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="margin-top:5px; font-size:0.85rem; color:#666;">
+                * Note: Switch OPEN (UP) = OFF. CLOSED (DOWN) = ON.
+            </div>
+        </div>
+    </details>
+
+    <div class="main-interface">
+        
+        <!-- Controls -->
+        <div class="controls-panel">
+            <div class="control-group">
+                <label>Target Monitor Configuration</label>
+                <select id="presetSelect" onchange="applyPreset()">
+                    <option value="custom">Custom / Manual Configuration</option>
+                </select>
+                <div class="hint">Selecting a mode automatically sets switches & jumpers.</div>
+            </div>
+        </div>
+
+        <!-- Visuals -->
+        <div class="visuals-panel">
+            <!-- DIP Switches -->
+            <div id="switchContainer"></div>
+            
+            <!-- Jumpers -->
+            <div id="jumperContainer" class="jumpers-container"></div>
+        </div>
+
+        <!-- Status -->
+        <div class="status-readout" id="statusDisplay">Loading...</div>
+    </div>
+</div>
+
+<script>
+    /**
+     * Logic Source: IBM EGA Manual
+     * Logic: OFF = OPEN (UP), ON = CLOSED (DOWN)
+     */
+    
+    // State: false = OFF (UP), true = ON (DOWN)
+    let switchState = [false, false, false, false]; 
+    let jumperState = { 'P1': '1-2', 'P3': '1-2' };
+
+    // PRESETS
+    const presets = [
+        { 
+            name: "MDA Monochrome", 
+            // Manual: Off, Off, On, Off | P1: 2-3 | P3: 1-2
+            sw: [false, false, true, false],
+            jp: { 'P1': '2-3', 'P3': '1-2' }
+        },
+        { 
+            name: "CGA (40x25)", 
+            // Manual: On, Off, Off, On | P1: 2-3 | P3: 1-2
+            sw: [true, false, false, true],
+            jp: { 'P1': '2-3', 'P3': '1-2' }
+        },
+        { 
+            name: "CGA (80x25)", 
+            // Manual: Off, Off, Off, On | P1: 2-3 | P3: 1-2
+            sw: [false, false, false, true],
+            jp: { 'P1': '2-3', 'P3': '1-2' }
+        },
+        { 
+            name: "EGA 200 line", 
+            // Manual: On, On, On, Off | P1: 1-2 | P3: 1-2
+            sw: [true, true, true, false],
+            jp: { 'P1': '1-2', 'P3': '1-2' }
+        },
+        { 
+            name: "EGA 350 line", 
+            // Manual: Off, On, On, Off | P1: 1-2 | P3: 1-2
+            sw: [false, true, true, false],
+            jp: { 'P1': '1-2', 'P3': '1-2' }
+        }
+    ];
+
+    function init() {
+        renderSwitches();
+        renderJumpers();
+        populatePresets();
+        
+        // Load default preset (EGA 350 line)
+        document.getElementById('presetSelect').value = "4"; 
+        applyPreset();
+    }
+
+    function renderSwitches() {
+        const container = document.getElementById('switchContainer');
+        container.innerHTML = '';
+        
+        const block = document.createElement('div');
+        block.className = 'dip-switch-block';
+        
+        const topLbl = document.createElement('div');
+        topLbl.className = 'block-top-label';
+        topLbl.innerText = 'OPEN (OFF) ↑'; 
+        block.appendChild(topLbl);
+
+        const botLbl = document.createElement('div');
+        botLbl.className = 'block-bottom-label';
+        botLbl.innerText = 'ON ↓'; 
+        block.appendChild(botLbl);
+
+        for(let i=0; i<4; i++) {
+            const unit = document.createElement('div');
+            unit.className = 'switch-unit';
+            unit.onclick = () => toggleSwitch(i);
+            
+            const casing = document.createElement('div');
+            casing.className = 'switch-casing';
+            const actuator = document.createElement('div');
+            actuator.className = 'actuator';
+            casing.appendChild(actuator);
+            
+            const num = document.createElement('div');
+            num.className = 'switch-num';
+            num.innerText = (i+1);
+            
+            unit.appendChild(casing);
+            unit.appendChild(num);
+            block.appendChild(unit);
+        }
+        container.appendChild(block);
+    }
+
+    function renderJumpers() {
+        const container = document.getElementById('jumperContainer');
+        const jumpers = [
+            { id: 'P1', label: 'P1 (Monitor Type)', pins: 3 },
+            { id: 'P3', label: 'P3', pins: 3 }
+        ];
+
+        jumpers.forEach(j => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'jumper-unit';
+            wrapper.dataset.id = j.id;
+            
+            const label = document.createElement('div');
+            label.className = 'jumper-label';
+            label.innerText = j.label;
+            
+            const header = document.createElement('div');
+            header.className = 'pin-header';
+            
+            // Create pins
+            for(let p=1; p<=j.pins; p++) {
+                const pin = document.createElement('div');
+                pin.className = 'pin';
+                pin.dataset.pin = p;
+                header.appendChild(pin);
+            }
+
+            // Create Cap
+            const cap = document.createElement('div');
+            cap.className = 'jumper-cap';
+            header.appendChild(cap);
+
+            // Click handler
+            header.onclick = () => cycleJumper(j.id);
+
+            wrapper.appendChild(label);
+            wrapper.appendChild(header);
+            container.appendChild(wrapper);
+        });
+    }
+
+    function populatePresets() {
+        const sel = document.getElementById('presetSelect');
+        presets.forEach((p, index) => {
+            const opt = document.createElement('option');
+            opt.value = index;
+            opt.innerText = p.name;
+            sel.appendChild(opt);
+        });
+    }
+
+    /* --- LOGIC --- */
+
+    function toggleSwitch(index) {
+        switchState[index] = !switchState[index];
+        syncDropdownFromState();
+        updateUI();
+    }
+
+    function cycleJumper(id) {
+        const current = jumperState[id];
+        jumperState[id] = (current === '1-2') ? '2-3' : '1-2';
+        syncDropdownFromState();
+        updateUI();
+    }
+
+    function applyPreset() {
+        const val = document.getElementById('presetSelect').value;
+        if(val === 'custom') return;
+
+        const p = presets[parseInt(val)];
+        switchState = [...p.sw];
+        jumperState = {...p.jp};
+
+        updateUI();
+    }
+
+    function syncDropdownFromState() {
+        const sel = document.getElementById('presetSelect');
+        const currentSwStr = JSON.stringify(switchState);
+        const currentJpStr = JSON.stringify(jumperState);
+        
+        let found = false;
+        presets.forEach((p, index) => {
+            const pSwStr = JSON.stringify(p.sw);
+            const pJpStr = JSON.stringify(p.jp);
+
+            if(pSwStr === currentSwStr && pJpStr === currentJpStr) {
+                sel.value = index;
+                found = true;
+            }
+        });
+
+        if(!found) sel.value = 'custom';
+    }
+
+    function updateUI() {
+        // 1. Update Switches Visuals
+        const swUnits = document.querySelectorAll('.switch-unit');
+        swUnits.forEach((u, i) => {
+            u.dataset.state = switchState[i] ? 'on' : 'off';
+        });
+
+        // 2. Update Jumpers Visuals
+        const jpUnits = document.querySelectorAll('.jumper-unit');
+        jpUnits.forEach(u => {
+            const id = u.dataset.id;
+            u.dataset.pos = jumperState[id];
+        });
+
+        // 3. Generate Status Text
+        generateReadout();
+    }
+
+    function generateReadout() {
+        const s = switchState;
+        const j = jumperState;
+        let lines = [];
+
+        // 1. Decode Jumper P1
+        if (j['P1'] === '1-2') {
+             lines.push("JUMPER P1: 1-2 (EGA Monitor)");
+        } else {
+             lines.push("JUMPER P1: 2-3 (CGA/MDA Monitor)");
+        }
+        
+        // 2. Decode DIP Switches
+        let mode = "Unknown / Custom";
+        const match = (patt) => {
+            return s[0] === patt[0] && s[1] === patt[1] && s[2] === patt[2] && s[3] === patt[3];
+        };
+
+        if(match([false, false, true, false])) mode = "Monochrome (MDA)";
+        else if(match([true, false, false, true])) mode = "Color (40x25) CGA";
+        else if(match([false, false, false, true])) mode = "Color (80x25) CGA";
+        else if(match([true, true, true, false])) mode = "Enhanced Color (Normal Mode)";
+        else if(match([false, true, true, false])) mode = "Enhanced Color (Enhanced Mode)";
+
+        lines.push(`SWITCHES : ${mode}`);
+
+        // 3. Consistency Warning
+        const isEgaSwitch = match([true, true, true, false]) || match([false, true, true, false]);
+        const isEgaJumper = (j['P1'] === '1-2');
+
+        if(isEgaSwitch && !isEgaJumper) {
+            lines.push("\n[!] WARNING: Switches set for EGA, but Jumper P1 is set for CGA/MDA");
+        } else if(!isEgaSwitch && isEgaJumper) {
+            lines.push("\n[!] WARNING: Switches set for CGA/MDA, but Jumper P1 is set for EGA");
+        }
+
+        document.getElementById('statusDisplay').innerText = lines.join("\n");
+    }
+
+    // Run once on load
+    init();
+
+</script>
+</body>
+</html>
